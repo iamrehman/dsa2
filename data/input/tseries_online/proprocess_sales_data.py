@@ -12,16 +12,15 @@ root = os.path.abspath(os.getcwd()).replace("\\", "/") + "/"
 print(root)
 
 quantitative_columns = ["Quan_4", "Quan_5", "Quan_6", "Quan_7", "Quan_8", "Quan_9", "Quan_10", "Quan_11", "Quan_12", "Quan_13", "Quan_14", "Quan_15", "Quan_16", "Quan_17", "Quan_18", "Quan_19", "Quan_21", "Quan_22", "Quan_27", "Quan_28", "Quan_29", "Quant_22", "Quant_24", "Quant_25"]
-def preprocess(dataframe_train, dataframe_test):
+def preprocess(dataframe):
     """
     fill null values with median of the column
     Dates are inserted multiple times: number of days, year, month, day
     and binary vectors for year, month and day.
     finally redundant columns are removed
     """
-    dataframe = pd.concat([dataframe_train, dataframe_test])
     dataframe['Date_3'] = dataframe.Date_1 - dataframe.Date_2
-    train_size = dataframe_train.shape[0]
+    train_size = 600
     X_categorical = []
     X_quantitative = []
     X_date = []
@@ -33,16 +32,17 @@ def preprocess(dataframe_train, dataframe_test):
             columns.append(col)
             uni = np.unique(dataframe[col])
             if len(uni) > 1:
-                # binarize categorical variables
+                # Quick smart way to binarize categorical variables:
                 X_categorical.append(uni==dataframe[col].values[:,None])
         elif col.startswith('Quan_') or col.startswith('Quant_'):
             columns.append(col)
+            # Use logscale when needed:
             if col in quantitative_columns:
                 dataframe[col] = np.log(dataframe[col])
             # if the column is not just full of NaN:
             if (pd.isnull(dataframe[col])).sum() > 1:
                 tmp = dataframe[col].copy()
-                # filling missing values with median
+                # illing missing values with median
                 tmp = tmp.fillna(tmp.median())
                 X_quantitative.append(tmp.values)
         elif col.startswith('Date_'):
@@ -78,7 +78,7 @@ def preprocess(dataframe_train, dataframe_test):
             tmp = tmp.fillna(tmp.median())
             ys[:,outcome_col_number] = tmp.values
         else:
-            raise NameError
+            continue
 
     X_categorical = np.hstack(X_categorical).astype(np.float)
     X_quantitative = np.vstack(X_quantitative).astype(np.float).T
@@ -90,24 +90,19 @@ def preprocess(dataframe_train, dataframe_test):
     return X_train, X_test, ys, columns
 
 def save_data(data_info, base_path):
-    data_info['train_features'].to_csv(f"{base_path}/train/train_features.csv.zip",compression = 'gzip')
-    data_info['test_features'].to_csv(f"{base_path}/test/test_features.csv.zip",compression = 'gzip')
-    data_info['targets'].to_csv(f"{base_path}/train/targets.csv.zip",compression = 'gzip')
+    data_info['train_features'].to_csv(f"{base_path}/train/train_features.zip",compression = 'gzip')
+    data_info['test_features'].to_csv(f"{base_path}/test/test_features.zip",compression = 'gzip')
+    data_info['targets'].to_csv(f"{base_path}/train/targets.zip",compression = 'gzip')
 
 if __name__ == '__main__':
 
-    train_path = 'raw/TrainingDataset.csv'
-    test_path = 'raw/TestDataset.csv'
+    train_path = 'raw/TrainingDataset.zip'
     df_train = pd.read_csv(train_path)
-    df_test = pd.read_csv(test_path)
-
 
     print ("dataframe_train:", df_train)
-    print ("dataframe_test:", df_test)
-    
-    ids = df_test.values[:,0].astype(np.int)
+    ids = df_train.values[:,0].astype(np.int)
 
-    X_train, X_test, targets, columns = preprocess(df_train, df_test)
+    X_train, X_test, targets, columns = preprocess(df_train)
     X_train = pd.DataFrame(X_train)
     X = np.vstack([X_train, X_test])
     X_train = pd.DataFrame( X[:X_train.shape[0], :])
